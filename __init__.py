@@ -9,20 +9,29 @@ from aqt.qt import *
 
 #get all cards requiring generation and process them
 def generateAll() -> None:
+    processMobileReviews()
     config = mw.addonManager.getConfig(__name__)
     api_key = config.get("openai_api_key", "")
     if not api_key: 
         showInfo("Set your OpenAI api key in anki add on configuration")
-    search_query = "prop:due>=0 prop:due<=1 tag:requires note:GPT"
+        return
+    search_query = "prop:due<=1 tag:requires note:GPT"
     card_ids = mw.col.findCards(search_query)
     for card_id in card_ids:
         card = mw.col.getCard(card_id)
         process_card(card, api_key)
     showInfo("Done Generating!")
 # have Tools Menu option for generating cards that need to be generated
-action = QAction("Generate Scenarios", mw)
+action = QAction("Generate & Handle Mobile", mw)
 qconnect(action.triggered, generateAll)
 mw.form.menuTools.addAction(action)
+
+def processMobileReviews(): 
+    search_query = "prop:due>1 tag:generated note:GPT"
+    card_ids = mw.col.findCards(search_query)
+    for card_id in card_ids:
+        card = mw.col.getCard(card_id)
+        handle_answer('', card, 3)
 
 
 def call_openai(prompt, api_key):
@@ -65,7 +74,6 @@ def process_card(card, api_key) -> None:
             mw.col.update_note(note)
         except Exception as e:
             showInfo(f"An error occurred: {e}")
-       
 
 def field_set_parse(input_str):
     entries = re.split(r'\d+\]', input_str)
@@ -87,7 +95,6 @@ def create_spread_note(index, practice, note, card):
     new_note = mw.col.newNote()  # now this note will use the "GPT" model
     new_note.addTag("requires")
     new_note.addTag("spread")
-    showInfo(practice)
     new_note["Recognition Practice Set"] = re.sub('<br><br>$', '', practice.replace('&nbsp;', '').strip())
     new_note["Context"] = note["Context"]
     new_note["Prompt"] = note["Prompt"]
